@@ -3,8 +3,11 @@
 #define _WFPTEST_H_
 
 #include <ntddk.h>
-#include <fwpsk.h>
+#include <ndis.h>
 #include <fwpmk.h>
+#include <fwpsk.h>
+#include <Fwpmu.h>
+#include "initguid.h"
 
 
 NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath);
@@ -30,13 +33,13 @@ void WFPClassifyFn1(
 	const FWPS_FILTER1 *filter,
 	UINT64 flowContext,
 	FWPS_CLASSIFY_OUT0 *classifyOut
-);
+	);
 
 NTSTATUS WFPNotifyFn1(
 	FWPS_CALLOUT_NOTIFY_TYPE notifyType,
 	const GUID *filterKey,
 	FWPS_FILTER1 *filter
-);
+	);
 
 VOID NTAPI
 WFPFlowDeleteFn(

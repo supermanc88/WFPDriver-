@@ -1,4 +1,11 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "wfptest.h"
+// #define INITGUID
+#include <guiddef.h>
+
 
 #define LOG_STRING "WFPDriver: "
 #define WFP_DEVICE_NAME L"\\Device\\WFPDriver_Device"
@@ -13,6 +20,8 @@ HANDLE g_hEngine = NULL;
 UINT32 g_RegisterCalloutId = 0;
 UINT32 g_AddCalloutId = 0;
 UINT64 g_FilterId = 0;
+
+
 
 VOID DriverUnload(PDRIVER_OBJECT DriverObject)
 {
@@ -309,3 +318,8 @@ WFPFlowDeleteFn(
 {
 	MyKdPrint(("Enter WFPFlowDeleteFn\n"));
 }
+
+
+#ifdef __cplusplus
+}
+#endif
