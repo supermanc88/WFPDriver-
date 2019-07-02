@@ -23,4 +23,14 @@
       <Filter>Driver Files</Filter>
     </Inf>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="wfptest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="wfptest.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>
