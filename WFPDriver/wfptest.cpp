@@ -31,6 +31,9 @@ VOID DriverUnload(PDRIVER_OBJECT DriverObject)
 	IoDeleteSymbolicLink(&SymbolicName);
 	MyKdPrint(("删除符号链接\n"));
 
+	UnInitWFP();
+	MyKdPrint(("关闭WFP相关\n"));
+
 	if(g_DeviceObject)
 	{
 		IoDeleteDevice(g_DeviceObject);
@@ -45,7 +48,7 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 
 	NTSTATUS status = STATUS_SUCCESS;
 
-	MyKdPrint(("Enter DriverEntry"));
+	MyKdPrint(("Enter DriverEntry\n"));
 
 	DriverObject->DriverUnload = DriverUnload;
 
@@ -73,6 +76,8 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 
 	IoCreateSymbolicLink(&SymbolicName, &DeviceName);
 
+	status = InitWFP();
+
 	return status;
 }
 
@@ -94,22 +99,33 @@ NTSTATUS InitWFP()
 		{
 			break;
 		}
+		status = FwpmTransactionBegin0(g_hEngine, 0);
+		if (!NT_SUCCESS(status))
+		{
+			break;
+		}
 		if(!NT_SUCCESS(WFPRegisterCallouts(g_DeviceObject)))
 		{
 			break;
 		}
-		if(NT_SUCCESS(WFPAddCallouts()))
+		if(!NT_SUCCESS(WFPAddCallouts()))
 		{
 			break;
 		}
-		if(NT_SUCCESS(WFPAddSubLayers()))
+		if(!NT_SUCCESS(WFPAddSubLayers()))
 		{
 			break;
 		}
-		if(NT_SUCCESS(WFPAddFilter()))
+		if(!NT_SUCCESS(WFPAddFilter()))
 		{
 			break;
 		}
+		status = FwpmTransactionCommit0(g_hEngine);
+		if (!NT_SUCCESS(status))
+		{
+			break;
+		}
+		status = STATUS_SUCCESS;
 	}
 	while (false);
 
@@ -152,9 +168,9 @@ NTSTATUS WFPAddCallouts()
 	callout.calloutKey = WFP_SAMPLE_ESTABLISHED_CALLOUT_V4_GUID;
 	//需要把这个callout应用到哪个Filter Layer上
 	// 具体参考 https://docs.microsoft.com/zh-cn/windows/desktop/FWP/management-filtering-layer-identifiers-
-	callout.applicableLayer = FWPM_LAYER_ALE_FLOW_ESTABLISHED_V4;
+	callout.applicableLayer = FWPM_LAYER_OUTBOUND_TRANSPORT_V4;
 
-	FwpmCalloutAdd0(g_hEngine, &callout, NULL, &calloutId);
+	status = FwpmCalloutAdd0(g_hEngine, &callout, NULL, &calloutId);
 
 	g_AddCalloutId = calloutId;
 
@@ -164,6 +180,8 @@ NTSTATUS WFPAddCallouts()
 HANDLE OpenFilterEngine()
 {
 	FWPM_SESSION0 session = { 0 };
+	session.flags = FWPM_SESSION_FLAG_DYNAMIC;
+
 	HANDLE hEngine = NULL;
 	FwpmEngineOpen0(NULL,
 		RPC_C_AUTHN_WINNT,
@@ -177,12 +195,12 @@ NTSTATUS WFPAddSubLayers()
 {
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
 
-	FWPM_SUBLAYER subLayer = { 0 };
+	FWPM_SUBLAYER0 subLayer = { 0 };
 	subLayer.flags = 0;
 	subLayer.displayData.description = (wchar_t*)L"WFPSubLayerDesc";
 	subLayer.displayData.name = (wchar_t*)L"WFPSubLayerName";
 	subLayer.subLayerKey = WFP_SAMPLE_SUBLAYER_GUID;
-	subLayer.weight = 65535;
+	subLayer.weight = 0;
 
 	if(g_hEngine)
 	{
@@ -199,17 +217,25 @@ NTSTATUS WFPAddFilter()
 	FWPM_FILTER0 filter = { 0 };
 	FWPM_FILTER_CONDITION0 filterCondition[1] = { 0 };
 	UINT64 filterId;
+	FWP_V4_ADDR_AND_MASK AddrAndMask = { 0 };
 
 	if(g_hEngine == NULL)
 	{
 		return status;
 	}
 
+	// 设置条件
+	filterCondition[0].fieldKey = FWPM_CONDITION_IP_REMOTE_ADDRESS;
+	filterCondition[0].matchType = FWP_MATCH_NOT_EQUAL;
+	filterCondition[0].conditionValue.type = FWP_V4_ADDR_MASK;
+	filterCondition[0].conditionValue.v4AddrMask = &AddrAndMask;
+
 	filter.displayData.name = (wchar_t*)L"WPFFilterName";
 	filter.displayData.description = (wchar_t*)L"WPFFilterDesc";
 	filter.flags = 0;
 	// 关联分层
-	filter.layerKey = FWPM_LAYER_ALE_FLOW_ESTABLISHED_V4;
+	// filter.layerKey = FWPM_LAYER_ALE_FLOW_ESTABLISHED_V4;
+	filter.layerKey = FWPM_LAYER_OUTBOUND_TRANSPORT_V4;
 	// 关联子层
 	filter.subLayerKey = WFP_SAMPLE_SUBLAYER_GUID;
 	filter.weight.type = FWP_EMPTY;

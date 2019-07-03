@@ -18,6 +18,7 @@ NTSTATUS WFPAddCallouts();
 NTSTATUS WFPAddSubLayers();
 NTSTATUS WFPAddFilter();
 
+NTSTATUS InitWFP();
 VOID UnInitWFP();
 VOID CloseFilterEngine();
 VOID WFPUnRegisterCallouts();
